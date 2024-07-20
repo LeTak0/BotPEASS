@@ -338,7 +338,7 @@ def send_pushover_message(message: str, public_expls_msg: str):
         print("ERROR SENDING TO PUSHOVER: "+ message.split("\n")[0] +message)
 
 
-def send_ntfy_message(message: str, public_expls_msg: str):
+def send_ntfy_message(message: str, title: str = "New CVE Alert", public_expls_msg: str = ""):
     ''' Send a message to the ntfy.sh topic '''
 
     ntfy_url = os.getenv('NTFY_URL')
@@ -424,7 +424,7 @@ def main():
         send_slack_mesage(cve_message, public_expls_msg)
         send_telegram_message(cve_message, public_expls_msg)
         send_pushover_message(cve_message, public_expls_msg)
-        send_ntfy_message(cve_message, public_expls_msg)
+        send_ntfy_message(cve_message, public_expls_msg=public_expls_msg)
 
     #Update last times
     update_lasttimes()
