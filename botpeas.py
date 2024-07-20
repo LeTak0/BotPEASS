@@ -375,6 +375,13 @@ def send_ntfy_message(message: str, public_expls_msg: str):
     else:
         print(f"Failed to send notification to ntfy.sh. Status code: {response.status_code}, Response: {response.text}")
 
+
+def send_ntfy_test_message():
+    ''' Send a test message via ntfy to confirm the script is running '''
+    current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    test_message = f"BotPEAS script started running at {current_time}"
+    send_ntfy_message(test_message, title="BotPEAS Test Message")
+
 #################### MAIN #########################
 
 def main():
@@ -383,6 +390,9 @@ def main():
 
     #Start loading time of last checked ones
     load_lasttimes()
+
+    # Send test message via ntfy
+    send_ntfy_test_message()
 
     #Find a publish new CVEs
     new_cves = get_new_cves()
