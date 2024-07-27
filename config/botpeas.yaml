@@ -15,24 +15,19 @@ DESCRIPTION_KEYWORDS_I:
 - linpeas
 - winpeas
 - docker
-- kubernetes
 - " lxc "
-- podman
 
 DESCRIPTION_KEYWORDS:
 - ThisIsACaseSensitiveExample
+- Privilege Escalation
+- Remote Code Execution
+- Command Injection
+- SQL Injection
+- Cross Site Scripting
 
 PRODUCT_KEYWORDS_I:
 - sudo
-- docker
-- kubernetes
-- lxc
-- podman
-- container
-- linux
-- windows
-- macos
-
 
 PRODUCT_KEYWORDS:
 - ThisIsACaseSensitiveExample
+- sudo

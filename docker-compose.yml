@@ -1,0 +1,14 @@
+services:
+  cve-bot:
+    build:
+      context: .
+      dockerfile: DOCKERFILE
+    volumes:
+      - ./output:/app/output
+      - ./config:/app/config
+    environment:
+      - VULNERS_API_KEY=${VULNERS_API_KEY}
+      - NTFY_URL=${NTFY_URL}
+      - NTFY_TOPIC=${NTFY_TOPIC}
+      - NTFY_AUTH=${NTFY_AUTH}
+    restart: unless-stopped

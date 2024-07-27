@@ -12,12 +12,14 @@ from discord import Webhook, RequestsWebhookAdapter
 
 
 CIRCL_LU_URL = "https://cve.circl.lu/api/query"
-CVES_JSON_PATH = join(pathlib.Path(__file__).parent.absolute(), "output/botpeas.json")
+#CVES_JSON_PATH = join(pathlib.Path(__file__).parent.absolute(), "output/botpeas.json")
+CVES_JSON_PATH = '/app/output/botpeas.json'
 LAST_NEW_CVE = datetime.datetime.now() - datetime.timedelta(days=1)
 LAST_MODIFIED_CVE = datetime.datetime.now() - datetime.timedelta(days=1)
 TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
-KEYWORDS_CONFIG_PATH = join(pathlib.Path(__file__).parent.absolute(), "config/botpeas.yaml")
+#KEYWORDS_CONFIG_PATH = join(pathlib.Path(__file__).parent.absolute(), "config/botpeas.yaml")
+KEYWORDS_CONFIG_PATH = '/app/config/botpeas.yaml'
 ALL_VALID = False
 DESCRIPTION_KEYWORDS_I = []
 DESCRIPTION_KEYWORDS = []
@@ -173,7 +175,8 @@ def search_exploits(cve: str) -> list:
     return []
     #TODO: Find a better way to discover exploits
 
-    vulners_api_key = os.getenv('VULNERS_API_KEY')
+    #vulners_api_key = os.getenv('VULNERS_API_KEY')
+    vulners_api_key = os.environ.get('VULNERS_API_KEY')
     
     if vulners_api_key:
         vulners_api = vulners.Vulners(api_key=vulners_api_key)
@@ -232,7 +235,7 @@ def generate_public_expls_message(public_expls: list) -> str:
 def send_slack_mesage(message: str, public_expls_msg: str):
     ''' Send a message to the slack group '''
 
-    slack_url = os.getenv('SLACK_WEBHOOK')
+    slack_url = os.environ.get('SLACK_WEBHOOK')
 
     if not slack_url:
         print("SLACK_WEBHOOK wasn't configured in the secrets!")
@@ -268,8 +271,8 @@ def send_slack_mesage(message: str, public_expls_msg: str):
 def send_telegram_message(message: str, public_expls_msg: str):
     ''' Send a message to the telegram group '''
 
-    telegram_bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
-    telegram_chat_id = os.getenv('TELEGRAM_CHAT_ID')    
+    telegram_bot_token = os.environ.get('TELEGRAM_BOT_TOKEN')
+    telegram_chat_id = os.environ.get('TELEGRAM_CHAT_ID')
 
     if not telegram_bot_token:
         print("TELEGRAM_BOT_TOKEN wasn't configured in the secrets!")
@@ -296,7 +299,7 @@ def send_telegram_message(message: str, public_expls_msg: str):
 def send_discord_message(message: str, public_expls_msg: str):
     ''' Send a message to the discord channel webhook '''
 
-    discord_webhok_url = os.getenv('DISCORD_WEBHOOK_URL')
+    discord_webhok_url = os.environ.get('DISCORD_WEBHOOK_URL')
 
     if not discord_webhok_url:
         print("DISCORD_WEBHOOK_URL wasn't configured in the secrets!")
@@ -315,9 +318,9 @@ def send_discord_message(message: str, public_expls_msg: str):
 def send_pushover_message(message: str, public_expls_msg: str):
     ''' Send a message to the pushover device '''
 
-    pushover_device_name = os.getenv('PUSHOVER_DEVICE_NAME')
-    pushover_user_key = os.getenv('PUSHOVER_USER_KEY')
-    pushover_token = os.getenv('PUSHOVER_TOKEN') 
+    pushover_device_name = os.environ.get('PUSHOVER_DEVICE_NAME')
+    pushover_user_key = os.environ.get('PUSHOVER_USER_KEY')
+    pushover_token = os.environ.get('PUSHOVER_TOKEN')
 
     if not pushover_device_name:
         print("PUSHOVER_DEVICE_NAME wasn't configured in the secrets!")
@@ -341,9 +344,9 @@ def send_pushover_message(message: str, public_expls_msg: str):
 def send_ntfy_message(message: str, public_expls_msg: str):
     ''' Send a message to the ntfy.sh topic '''
 
-    ntfy_url = os.getenv('NTFY_URL')
-    ntfy_topic = os.getenv('NTFY_TOPIC')
-    ntfy_auth = os.getenv('NTFY_AUTH')
+    ntfy_url = os.environ.get('NTFY_URL')
+    ntfy_topic = os.environ.get('NTFY_TOPIC')
+    ntfy_auth = os.environ.get('NTFY_AUTH')
 
     if not ntfy_url:
         print("NTFY_URL wasn't configured in the environment variables!")
@@ -365,7 +368,7 @@ def send_ntfy_message(message: str, public_expls_msg: str):
     }
 
     if ntfy_auth:
-        headers["Authorization"] = ntfy_auth
+        headers["Authorization"] = "Bearer " + ntfy_auth
 
     print(full_ntfy_url)
     response = requests.post(full_ntfy_url, data=message.encode('utf-8'), headers=headers)
@@ -378,11 +381,14 @@ def send_ntfy_message(message: str, public_expls_msg: str):
 #################### MAIN #########################
 
 def main():
+
     #Load configured keywords
     load_keywords()
 
     #Start loading time of last checked ones
     load_lasttimes()
+    send_ntfy_message("BotPEAS", "Container StartUp")
+
 
     #Find a publish new CVEs
     new_cves = get_new_cves()
@@ -394,10 +400,6 @@ def main():
         public_exploits = search_exploits(new_cve['id'])
         cve_message = generate_new_cve_message(new_cve)
         public_expls_msg = generate_public_expls_message(public_exploits)
-        send_slack_mesage(cve_message, public_expls_msg)
-        send_telegram_message(cve_message, public_expls_msg)
-        send_discord_message(cve_message, public_expls_msg)
-        send_pushover_message(cve_message, public_expls_msg)
         send_ntfy_message(cve_message, public_expls_msg)
 
     #Find and publish modified CVEs
@@ -411,9 +413,6 @@ def main():
         public_exploits = search_exploits(modified_cve['id'])
         cve_message = generate_modified_cve_message(modified_cve)
         public_expls_msg = generate_public_expls_message(public_exploits)
-        send_slack_mesage(cve_message, public_expls_msg)
-        send_telegram_message(cve_message, public_expls_msg)
-        send_pushover_message(cve_message, public_expls_msg)
         send_ntfy_message(cve_message, public_expls_msg)
 
     #Update last times
