@@ -5,6 +5,8 @@ import json
 import os
 import yaml
 import vulners
+import time
+import schedule
 
 from os.path import join
 from enum import Enum
@@ -33,6 +35,24 @@ class Time_Type(Enum):
 
 
 ################## LOAD CONFIGURATIONS ####################
+
+def job():
+    print("Running CVE check...")
+    main()
+
+def run_scheduler():
+    # Schedule the job to run every hour
+    schedule.every(1).hours.do(job)
+
+    while True:
+        schedule.run_pending()
+        time.sleep(1)def run_scheduler():
+    # Schedule the job to run every hour
+    schedule.every(1).hours.do(job)
+
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
 
 def load_keywords():
     ''' Load keywords from config file '''
@@ -387,7 +407,7 @@ def main():
 
     #Start loading time of last checked ones
     load_lasttimes()
-    send_ntfy_message("BotPEAS", "Container StartUp")
+    #send_ntfy_message("BotPEAS", "Container StartUp")
 
 
     #Find a publish new CVEs
@@ -420,4 +440,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    run_scheduler()
