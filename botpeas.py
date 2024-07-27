@@ -11,7 +11,7 @@ import schedule
 from os.path import join
 from enum import Enum
 from discord import Webhook, RequestsWebhookAdapter
-
+from requests.exceptions import RequestException
 
 CIRCL_LU_URL = "https://cve.circl.lu/api/query"
 #CVES_JSON_PATH = join(pathlib.Path(__file__).parent.absolute(), "output/botpeas.json")
@@ -40,17 +40,13 @@ def job():
     print("Running CVE check...")
     main()
 
-def run_scheduler():
-    # Schedule the job to run every hour
-    print("Starting scheduler")
-    schedule.every(1).hours.do(job)
+import schedule
+import time
 
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
-        def run_scheduler():
-            # Schedule the job to run every hour
-            schedule.every(1).hours.do(job)
+def run_scheduler():
+    print("Starting scheduler")
+    # Schedule the job to run every 5 minutes
+    schedule.every(1).hours.do(job)
 
     while True:
         schedule.run_pending()
@@ -120,9 +116,35 @@ def get_cves(tt_filter:Time_Type) -> dict:
         "time_type": tt_filter.value,
         "limit": "100",
     }
+
+    max_retries = 3
+    retry_delay = 5
+
     r = requests.get(CIRCL_LU_URL, headers=headers)
 
-    return r.json()
+    for attempt in range(max_retries):
+        try:
+            r = requests.get(CIRCL_LU_URL, headers=headers)
+            r.raise_for_status()  # Raises an HTTPError for bad responses
+            return r.json()
+        except RequestException as e:
+            print(f"Error fetching CVEs (attempt {attempt + 1}/{max_retries}): {str(e)}")
+            print(f"Response content: {r.text}")
+            if attempt < max_retries - 1:
+                print(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+            else:
+                print("Max retries reached. Returning empty dictionary.")
+                return {}
+        except ValueError as e:  # This will catch JSONDecodeError
+            print(f"Error decoding JSON (attempt {attempt + 1}/{max_retries}): {str(e)}")
+            print(f"Response content: {r.text}")
+            if attempt < max_retries - 1:
+                print(f"Retrying in {retry_delay} seconds...")
+                time.sleep(retry_delay)
+            else:
+                print("Max retries reached. Returning empty dictionary.")
+                return {}
 
 
 def get_new_cves() -> list:
@@ -403,41 +425,44 @@ def send_ntfy_message(message: str, public_expls_msg: str):
 #################### MAIN #########################
 
 def main():
-
-    #Load configured keywords
+    # Load configured keywords
     load_keywords()
 
-    #Start loading time of last checked ones
+    # Start loading time of last checked ones
     load_lasttimes()
-    #send_ntfy_message("BotPEAS", "Container StartUp")
 
-
-    #Find a publish new CVEs
+    # Find and publish new CVEs
     new_cves = get_new_cves()
 
-    new_cves_ids = [ncve['id'] for ncve in new_cves]
-    print(f"New CVEs discovered: {new_cves_ids}")
+    if new_cves:
+        new_cves_ids = [ncve['id'] for ncve in new_cves]
+        print(f"New CVEs discovered: {new_cves_ids}")
 
-    for new_cve in new_cves:
-        public_exploits = search_exploits(new_cve['id'])
-        cve_message = generate_new_cve_message(new_cve)
-        public_expls_msg = generate_public_expls_message(public_exploits)
-        send_ntfy_message(cve_message, public_expls_msg)
+        for new_cve in new_cves:
+            public_exploits = search_exploits(new_cve['id'])
+            cve_message = generate_new_cve_message(new_cve)
+            public_expls_msg = generate_public_expls_message(public_exploits)
+            send_ntfy_message(cve_message, public_expls_msg)
+    else:
+        print("No new CVEs found or there was an error fetching CVEs.")
 
-    #Find and publish modified CVEs
+    # Find and publish modified CVEs
     modified_cves = get_modified_cves()
 
-    modified_cves = [mcve for mcve in modified_cves if not mcve['id'] in new_cves_ids]
-    modified_cves_ids = [mcve['id'] for mcve in modified_cves]
-    print(f"Modified CVEs discovered: {modified_cves_ids}")
+    if modified_cves:
+        modified_cves = [mcve for mcve in modified_cves if not mcve['id'] in new_cves_ids]
+        modified_cves_ids = [mcve['id'] for mcve in modified_cves]
+        print(f"Modified CVEs discovered: {modified_cves_ids}")
 
-    for modified_cve in modified_cves:
-        public_exploits = search_exploits(modified_cve['id'])
-        cve_message = generate_modified_cve_message(modified_cve)
-        public_expls_msg = generate_public_expls_message(public_exploits)
-        send_ntfy_message(cve_message, public_expls_msg)
+        for modified_cve in modified_cves:
+            public_exploits = search_exploits(modified_cve['id'])
+            cve_message = generate_modified_cve_message(modified_cve)
+            public_expls_msg = generate_public_expls_message(public_exploits)
+            send_ntfy_message(cve_message, public_expls_msg)
+    else:
+        print("No modified CVEs found or there was an error fetching CVEs.")
 
-    #Update last times
+    # Update last times
     update_lasttimes()
 
 
