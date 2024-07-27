@@ -42,13 +42,15 @@ def job():
 
 def run_scheduler():
     # Schedule the job to run every hour
+    print("Starting scheduler")
     schedule.every(1).hours.do(job)
 
     while True:
         schedule.run_pending()
-        time.sleep(1)def run_scheduler():
-    # Schedule the job to run every hour
-    schedule.every(1).hours.do(job)
+        time.sleep(1)
+        def run_scheduler():
+            # Schedule the job to run every hour
+            schedule.every(1).hours.do(job)
 
     while True:
         schedule.run_pending()
