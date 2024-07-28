@@ -39,9 +39,6 @@ def job():
     print("Running CVE check...")
     main()
 
-import schedule
-import time
-
 def run_scheduler():
     print("Starting scheduler")
     # Schedule the job to run every 5 minutes
