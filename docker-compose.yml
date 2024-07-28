@@ -6,9 +6,19 @@ services:
     volumes:
       - ./output:/app/output
       - ./config:/app/config
-    environment:
-      - VULNERS_API_KEY=${VULNERS_API_KEY}
-      - NTFY_URL=${NTFY_URL}
-      - NTFY_TOPIC=${NTFY_TOPIC}
-      - NTFY_AUTH=${NTFY_AUTH}
+    secrets:
+      - vulners_api_key
+      - ntfy_url
+      - ntfy_topic
+      - ntfy_auth
     restart: unless-stopped
+
+secrets:
+  vulners_api_key:
+    file: ./secrets/vulners_api_key.txt
+  ntfy_url:
+    file: ./secrets/ntfy_url.txt
+  ntfy_topic:
+    file: ./secrets/ntfy_topic.txt
+  ntfy_auth:
+    file: ./secrets/ntfy_auth.txt

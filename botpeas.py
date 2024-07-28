@@ -14,13 +14,12 @@ from discord import Webhook, RequestsWebhookAdapter
 from requests.exceptions import RequestException
 
 CIRCL_LU_URL = "https://cve.circl.lu/api/query"
-#CVES_JSON_PATH = join(pathlib.Path(__file__).parent.absolute(), "output/botpeas.json")
 CVES_JSON_PATH = '/app/output/botpeas.json'
 LAST_NEW_CVE = datetime.datetime.now() - datetime.timedelta(days=1)
 LAST_MODIFIED_CVE = datetime.datetime.now() - datetime.timedelta(days=1)
 TIME_FORMAT = "%Y-%m-%dT%H:%M:%S"
 
-#KEYWORDS_CONFIG_PATH = join(pathlib.Path(__file__).parent.absolute(), "config/botpeas.yaml")
+
 KEYWORDS_CONFIG_PATH = '/app/config/botpeas.yaml'
 ALL_VALID = False
 DESCRIPTION_KEYWORDS_I = []
@@ -52,6 +51,14 @@ def run_scheduler():
         schedule.run_pending()
         time.sleep(1)
 
+def read_secret(secret_name):
+    try:
+        with open(f'/run/secrets/{secret_name}', 'r') as secret_file:
+            return secret_file.read().strip()
+    except IOError:
+        print(f"Could not read secret: {secret_name}")
+        return None
+
 def load_keywords():
     ''' Load keywords from config file '''
 
@@ -68,9 +75,6 @@ def load_keywords():
         DESCRIPTION_KEYWORDS = keywords_config["DESCRIPTION_KEYWORDS"]
         PRODUCT_KEYWORDS_I = keywords_config["PRODUCT_KEYWORDS_I"]
         PRODUCT_KEYWORDS = keywords_config["PRODUCT_KEYWORDS"]
-        #NTFY_URL = keywords_config.get("NTFY_URL", "")
-        #NTFY_TOPIC = keywords_config.get("NTFY_TOPIC", "")
-        #NTFY_AUTH = keywords_config.get("NTFY_AUTH", "")
 
 
 def load_lasttimes():
@@ -220,7 +224,7 @@ def search_exploits(cve: str) -> list:
     #TODO: Find a better way to discover exploits
 
     #vulners_api_key = os.getenv('VULNERS_API_KEY')
-    vulners_api_key = os.environ.get('VULNERS_API_KEY')
+    vulners_api_key = read_secret('vulners_api_key')
     
     if vulners_api_key:
         vulners_api = vulners.Vulners(api_key=vulners_api_key)
@@ -388,9 +392,9 @@ def send_pushover_message(message: str, public_expls_msg: str):
 def send_ntfy_message(message: str, public_expls_msg: str):
     ''' Send a message to the ntfy.sh topic '''
 
-    ntfy_url = os.environ.get('NTFY_URL')
-    ntfy_topic = os.environ.get('NTFY_TOPIC')
-    ntfy_auth = os.environ.get('NTFY_AUTH')
+    ntfy_url = read_secret('ntfy_url')
+    ntfy_topic = read_secret('ntfy_topic')
+    ntfy_auth = read_secret('ntfy_auth')
 
     if not ntfy_url:
         print("NTFY_URL wasn't configured in the environment variables!")
