@@ -8,7 +8,7 @@ import vulners
 import time
 import schedule
 
-from os.path import join
+
 from enum import Enum
 from discord import Webhook, RequestsWebhookAdapter
 from requests.exceptions import RequestException
@@ -106,8 +106,7 @@ def update_lasttimes():
 
 ################## SEARCH CVES ####################
 
-def get_cves(tt_filter:Time_Type) -> dict:
-    ''' Given the headers for the API retrive CVEs from cve.circl.lu '''
+def get_cves(tt_filter: Time_Type) -> dict:
     now = datetime.datetime.now() - datetime.timedelta(days=1)
     now_str = now.strftime("%d-%m-%Y")
 
@@ -119,34 +118,27 @@ def get_cves(tt_filter:Time_Type) -> dict:
     }
 
     max_retries = 3
-    retry_delay = 5
-
-    r = requests.get(CIRCL_LU_URL, headers=headers)
+    base_delay = 5
 
     for attempt in range(max_retries):
         try:
             r = requests.get(CIRCL_LU_URL, headers=headers)
-            r.raise_for_status()  # Raises an HTTPError for bad responses
+            r.raise_for_status()
             return r.json()
-        except RequestException as e:
+        except requests.exceptions.RequestException as e:
             print(f"Error fetching CVEs (attempt {attempt + 1}/{max_retries}): {str(e)}")
-            print(f"Response content: {r.text}")
+            if hasattr(e, 'response') and e.response is not None:
+                print(f"Response content: {e.response.text}")
             if attempt < max_retries - 1:
-                print(f"Retrying in {retry_delay} seconds...")
-                time.sleep(retry_delay)
+                delay = base_delay * (2 ** attempt)  # Exponential backoff
+                print(f"Retrying in {delay} seconds...")
+                time.sleep(delay)
             else:
-                print("Max retries reached. Returning empty dictionary.")
+                error_message = f"CVE API Unavailable: The CVE API has been unavailable for {max_retries} attempts. Last error: {str(e)}"
+                send_ntfy_message(error_message, "")
+                print("Max retries reached. Notification sent. Returning empty dictionary.")
                 return {}
-        except ValueError as e:  # This will catch JSONDecodeError
-            print(f"Error decoding JSON (attempt {attempt + 1}/{max_retries}): {str(e)}")
-            print(f"Response content: {r.text}")
-            if attempt < max_retries - 1:
-                print(f"Retrying in {retry_delay} seconds...")
-                time.sleep(retry_delay)
-            else:
-                print("Max retries reached. Returning empty dictionary.")
-                return {}
-
+    return {}
 
 def get_new_cves() -> list:
     ''' Get CVEs that are new '''
@@ -433,13 +425,13 @@ def main():
     load_lasttimes()
 
     # Find and publish new CVEs
-    new_cves = get_new_cves()
+    new_cves = get_cves(Time_Type.PUBLISHED)
 
     if new_cves:
-        new_cves_ids = [ncve['id'] for ncve in new_cves]
+        new_cves_ids = [ncve['id'] for ncve in new_cves.get('results', [])]
         print(f"New CVEs discovered: {new_cves_ids}")
 
-        for new_cve in new_cves:
+        for new_cve in new_cves.get('results', []):
             public_exploits = search_exploits(new_cve['id'])
             cve_message = generate_new_cve_message(new_cve)
             public_expls_msg = generate_public_expls_message(public_exploits)
@@ -448,10 +440,10 @@ def main():
         print("No new CVEs found or there was an error fetching CVEs.")
 
     # Find and publish modified CVEs
-    modified_cves = get_modified_cves()
+    modified_cves = get_cves(Time_Type.LAST_MODIFIED)
 
     if modified_cves:
-        modified_cves = [mcve for mcve in modified_cves if not mcve['id'] in new_cves_ids]
+        modified_cves = [mcve for mcve in modified_cves.get('results', []) if not mcve['id'] in new_cves_ids]
         modified_cves_ids = [mcve['id'] for mcve in modified_cves]
         print(f"Modified CVEs discovered: {modified_cves_ids}")
 
@@ -463,9 +455,10 @@ def main():
     else:
         print("No modified CVEs found or there was an error fetching CVEs.")
 
-    # Update last times
-    update_lasttimes()
-
+    # Update last times only if we successfully fetched CVEs
+    if new_cves or modified_cves:
+        update_lasttimes()
 
 if __name__ == "__main__":
+    job()
     run_scheduler()
